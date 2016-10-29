@@ -17,6 +17,7 @@ from charmhelpers.core.hookenv import (
     log,
     config,
     unit_get,
+    network_get_primary_address,
     status_set
 )
 from charmhelpers.contrib.network.ip import (
@@ -30,6 +31,7 @@ from charmhelpers.core.host import (
     write_file,
     service_start,
     service_stop,
+    service_restart,
     service_running,
     path_hash,
     set_nic_mtu
@@ -148,6 +150,49 @@ def determine_packages():
     return pkgs
 
 
+def disable_apparmor_libvirt():
+    '''
+    Disables Apparmor profile of libvirtd.
+    '''
+    apt_install('apparmor-utils')
+    apt_install('cgroup-bin')
+    _exec_cmd(['sudo', 'aa-disable', '/usr/sbin/libvirtd'],
+              error_msg='Error disabling AppArmor profile of libvirtd',
+              verbose=True)
+    disable_apparmor()
+    service_restart('libvirt-bin')
+
+
+def disable_apparmor():
+    '''
+    Disables Apparmor security for lxc.
+    '''
+    try:
+        f = open(LXC_CONF, 'r')
+    except IOError:
+        log('Libvirt not installed yet')
+        return 0
+    filedata = f.read()
+    f.close()
+    newdata = filedata.replace("security_driver = \"apparmor\"",
+                               "#security_driver = \"apparmor\"")
+    f = open(LXC_CONF, 'w')
+    f.write(newdata)
+    f.close()
+
+
+def get_unit_address(binding='internal'):
+    '''
+    Returns the unit's PLUMgrid Management/Fabric IP
+    '''
+    try:
+        # Using Juju 2.0 network spaces feature
+        return network_get_primary_address(binding)
+    except NotImplementedError:
+        # Falling back to private-address
+        return unit_get('private-address')
+
+
 def register_configs(release=None):
     '''
     Returns an object of the Openstack Tempating Class which contains the
@@ -253,10 +298,15 @@ def get_mgmt_interface():
     mgmt_interface = config('mgmt-interface')
     if not mgmt_interface:
         try:
-            return get_iface_from_addr(unit_get('private-address'))
+            return get_iface_from_addr(get_unit_address('internal'))
         except:
+            # workaroud if get_unit_address returns hostname
+            # (issue with unit-get 'private-address') also
+            # workaround the curtin issue where the
+            # interface on which bridge is created also gets
+            # an ip
             for bridge_interface in get_bridges():
-                if (get_host_ip(unit_get('private-address'))
+                if (get_host_ip(get_unit_address())
                         in get_iface_addr(bridge_interface)):
                     return bridge_interface
     elif interface_exists(mgmt_interface):
@@ -264,7 +314,7 @@ def get_mgmt_interface():
     else:
         log('Provided managment interface %s does not exist'
             % mgmt_interface)
-        return get_iface_from_addr(unit_get('private-address'))
+        return get_iface_from_addr(get_unit_address())
 
 
 def fabric_interface_changed():
@@ -288,27 +338,37 @@ def get_fabric_interface():
     Returns the fabric interface.
     '''
     fabric_interfaces = config('fabric-interfaces')
-    if fabric_interfaces == 'MANAGEMENT':
-        return get_mgmt_interface()
+    if not fabric_interfaces:
+        try:
+            fabric_ip = get_unit_address('fabric')
+            mgmt_ip = get_unit_address('internal')
+        except:
+            raise ValueError('Unable to get interface using \'fabric\' \
+                              binding! Ensure fabric interface has IP \
+                              assigned.')
+        if fabric_ip == mgmt_ip:
+            return get_mgmt_interface()
+        else:
+            return get_iface_from_addr(fabric_ip)
     else:
         try:
             all_fabric_interfaces = json.loads(fabric_interfaces)
         except ValueError:
             raise ValueError('Invalid json provided for fabric interfaces')
-        hostname = get_unit_hostname()
-        if hostname in all_fabric_interfaces:
-            node_fabric_interface = all_fabric_interfaces[hostname]
-        elif 'DEFAULT' in all_fabric_interfaces:
-            node_fabric_interface = all_fabric_interfaces['DEFAULT']
-        else:
-            raise ValueError('No fabric interface provided for node')
-        if interface_exists(node_fabric_interface):
-            return node_fabric_interface
-        else:
-            log('Provided fabric interface %s does not exist'
-                % node_fabric_interface)
-            raise ValueError('Provided fabric interface does not exist')
+    hostname = get_unit_hostname()
+    if hostname in all_fabric_interfaces:
+        node_fabric_interface = all_fabric_interfaces[hostname]
+    elif 'DEFAULT' in all_fabric_interfaces:
+        node_fabric_interface = all_fabric_interfaces['DEFAULT']
+    else:
+        raise ValueError('No fabric interface provided for node')
+    if interface_exists(node_fabric_interface):
         return node_fabric_interface
+    else:
+        log('Provided fabric interface %s does not exist'
+            % node_fabric_interface)
+        raise ValueError('Provided fabric interface does not exist')
+    return node_fabric_interface
 
 
 def get_gw_interfaces():

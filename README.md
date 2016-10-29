@@ -27,10 +27,6 @@ Instructions on using the charm:
 
 For plumgrid-gateway to work make the configuration in the neutron-api, neutron-api-plumgrid, plumgrid-director and plumgrid-edge charms as specified in the configuration section below.
 
-## Known Limitations and Issues
-
-This charm currently doesn't support Ubuntu 16.04.
-
 # Configuration
 
 Example Config
@@ -57,6 +53,25 @@ Example Config
 The "external-interfaces" config parameter should be the interfaces that will provide external connectivity on each of the gateway nodes. Should be provided as a json in a string with hostname and interface names.
 Provide the source repo path for PLUMgrid Debs in 'install_sources' and the corresponding keys in 'install_keys'.
 The virtual IP passed on in the neutron-api charm has to be same as the one passed in the plumgrid-director charm.
+
+#Network Space support
+
+This charm supports the use of Juju Network Spaces, allowing the charm to be bound to network space configurations managed directly by Juju.  This is only supported with Juju 2.0 and above.
+
+To use this feature, use the --bind option when deploying the charm:
+
+    juju deploy plumgrid-gateway --bind "internal=internal-space fabric=fabric-space"
+
+alternatively these can also be provided as part of a juju native bundle configuration:
+
+    plumgrid-gateway:
+      charm: cs:plumgrid-gateway
+      num_units: 1
+      bindings:
+        internal: internal-space
+        fabric: fabric-space
+
+NOTE: Spaces must be configured in the underlying provider prior to attempting to use them. 'internal' binding is mapped onto OpenStack internal-api endpoint while 'fabric' is mapped to OpenStack tenant-data-api endpoint.
 
 # Contact Information
 

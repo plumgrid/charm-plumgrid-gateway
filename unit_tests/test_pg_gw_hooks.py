@@ -31,6 +31,7 @@ TO_PATCH = [
     'load_iptables',
     'director_cluster_ready',
     'status_set',
+    'disable_apparmor_libvirt',
     'configure_analyst_opsvm'
 ]
 NEUTRON_CONF_DIR = "/etc/neutron"

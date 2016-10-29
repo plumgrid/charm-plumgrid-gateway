@@ -37,6 +37,7 @@ from pg_gw_utils import (
     restart_on_stop,
     director_cluster_ready,
     configure_pg_sources,
+    disable_apparmor_libvirt,
     configure_analyst_opsvm
 )
 
@@ -44,7 +45,7 @@ hooks = Hooks()
 CONFIGS = register_configs()
 
 
-@hooks.hook()
+@hooks.hook('install.real')
 def install():
     '''
     Install hook is run when the charm is first deployed on a node.
@@ -59,6 +60,7 @@ def install():
     load_iovisor()
     ensure_mtu()
     ensure_files()
+    disable_apparmor_libvirt()
     add_lcm_key()
 
 
