@@ -14,7 +14,7 @@ tags:
   - openstack
 extra-bindings:
   internal:
-  fabric:
+  compute-data:
 requires:
   plumgrid:
     interface: plumgrid

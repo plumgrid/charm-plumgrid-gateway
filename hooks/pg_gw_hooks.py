@@ -38,7 +38,8 @@ from pg_gw_utils import (
     director_cluster_ready,
     configure_pg_sources,
     disable_apparmor_libvirt,
-    configure_analyst_opsvm
+    configure_analyst_opsvm,
+    get_unit_address
 )
 
 hooks = Hooks()
@@ -83,7 +84,7 @@ def gateway_node_joined(relation_id=None):
     This hook is run when relation between plumgrid-gateway and
     plumgrid-director is made.
     '''
-    rel_data = {'gateway-peer': 'gateway-peer'}
+    rel_data = {'gateway_ip': get_unit_address()}
     relation_set(relation_id=relation_id, **rel_data)
 
 

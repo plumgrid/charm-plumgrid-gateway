@@ -32,7 +32,8 @@ TO_PATCH = [
     'director_cluster_ready',
     'status_set',
     'disable_apparmor_libvirt',
-    'configure_analyst_opsvm'
+    'configure_analyst_opsvm',
+    'get_unit_address'
 ]
 NEUTRON_CONF_DIR = "/etc/neutron"
 
